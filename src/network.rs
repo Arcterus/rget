@@ -15,20 +15,18 @@ use std::io::{Seek, SeekFrom, BufWriter};
 use std::path::{Path, PathBuf};
 use std::io::{self, Read, Write};
 use std::thread;
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 use std::mem;
-use term_size;
 use term::{self, StdoutTerminal, StderrTerminal};
-use number_prefix::{self, Standalone, Prefixed};
+use pbr::{MultiBar, ProgressBar, Units};
 
 use partial::FilePart;
 
-const PRINT_DELAY: u64 = 500;
+const PRINT_DELAY: u64 = 100;
 
 pub struct Downloader {
    parallel: u64,
-   downloaded: u64,
    size: Option<u64>,
    stdout: Box<StdoutTerminal>,
    stderr: Box<StderrTerminal>
@@ -38,7 +36,6 @@ impl Downloader {
    pub fn new(parallel: u64) -> Downloader {
       Downloader {
          parallel: parallel,
-         downloaded: 0,
          size: None,
          stdout: term::stdout().unwrap(),
          stderr: term::stderr().unwrap()
@@ -118,37 +115,24 @@ impl Downloader {
       self.info(&format!("using a total of {} connections", parallel));
 
       let mut children = vec![];
-      let downloaded = Arc::new(RwLock::new(vec![]));
-      let size = Arc::new(RwLock::new(vec![]));
-      let done = Arc::new(RwLock::new(vec![]));
+      let mut mb = MultiBar::new();
 
       for i in 0u64..parallel {
-         downloaded.write().unwrap().push(0);
-         size.write().unwrap().push(0);
-         done.write().unwrap().push(false);
-
-         let downloaded = downloaded.clone();
-         let size = size.clone();
-         let done = done.clone();
          let url = url.clone();
          let output = output.as_ref().to_path_buf();
          let client = client.clone();
+         let mut progbar = mb.create_bar(100);
+
+         progbar.set_max_refresh_rate(Some(Duration::from_millis(PRINT_DELAY)));
+         progbar.show_message = true;
+         progbar.set_units(Units::Bytes);
 
          children.push(thread::spawn(move || {
-            Downloader::download_url_thread_cb(i,
-                                               downloaded,
-                                               size,
-                                               done,
-                                               client,
-                                               url,
-                                               output,
-                                               length,
-                                               bytes,
-                                               parallel)
+            Downloader::download_callback(i, progbar, client, url, output, length, bytes, parallel)
          }));
       }
 
-      self.track_progress(done, downloaded);
+      mb.listen();
 
       let mut result = "".to_string();
       for child in children {
@@ -162,20 +146,22 @@ impl Downloader {
       if result.len() > 0 {
          Err(result.trim_right().to_string())
       } else {
-         self.merge_parts(parallel, file, output)
+         self.info("merging parts... ");
+         let result = self.merge_parts(parallel, file, output);
+         self.info("finished merging");
+         result
       }
    }
 
-   fn download_url_thread_cb(part: u64,
-                             downloaded: Arc<RwLock<Vec<u64>>>,
-                             size: Arc<RwLock<Vec<u64>>>,
-                             done: Arc<RwLock<Vec<bool>>>,
-                             client: Arc<Client>,
-                             url: Url,
-                             output: PathBuf,
-                             length: Option<u64>,
-                             bytes: u64,
-                             parallel: u64) -> Result<(), String> {
+   fn download_callback<T: Write>(part: u64,
+                                  mut pb: ProgressBar<T>,
+                                  client: Arc<Client>,
+                                  url: Url,
+                                  output: PathBuf,
+                                  length: Option<u64>,
+                                  bytes: u64,
+                                  parallel: u64) -> Result<(), String> {
+      pb.message("Waiting  : ");
       let mut request = client.get(url);
       if let Some(length) = length {
          let section = (length - bytes) / parallel;
@@ -190,35 +176,43 @@ impl Downloader {
       let part = part as usize;
       let result = match request.send() {
          Ok(mut resp) => {
+            pb.message("Connected: ");
             // FIXME: is this right/all?
             if resp.status() == &StatusCode::Ok || resp.status() == &StatusCode::PartialContent {
                let &ContentLength(length) = resp.headers().get()
                                                           .unwrap_or(&ContentLength(u64::MAX));
-               size.write().unwrap()[part] = length;
+               pb.total = length;
                // TODO: check accept-ranges or whatever
-               let mut file = FilePart::create(output, part as u64);
+               let mut file = FilePart::create(&output, part as u64);
                let mut buffer: [u8; 8192] = unsafe { mem::uninitialized() };
-               while downloaded.read().unwrap()[part] < size.read().unwrap()[part] {
+               let mut downloaded = 0;
+               while downloaded < length {
                   match resp.read(&mut buffer) {
                      Ok(n) => {
                         if n == 0 {
                            break;
                         } else {
-                           downloaded.write().unwrap()[part] += n as u64;
+                           downloaded += n as u64;
                            file.write_all(&buffer[0..n]).unwrap();
+                           pb.add(n as u64);
                         }
                      }
                      Err(f) => return Err(format!("{}", f))
                   }
+                  pb.tick();
                }
+               pb.finish_print(&format!("Completed: {}.part{}", output.display(), part));
                Ok(())
             } else {
+               pb.finish_print(&format!("Failed   : {}.part{}", output.display(), part));
                Err(format!("received {} from server", resp.status()))
             }
          }
-         Err(f) => Err(format!("{}", f))
+         Err(f) => {
+            pb.finish_print(&format!("Failed   : {}.part{}", output.display(), part));
+            Err(format!("{}", f))
+         }
       };
-      done.write().unwrap()[part] = true;
       result
    }
 
@@ -239,80 +233,6 @@ impl Downloader {
       Ok(())
    }
 
-   fn track_progress(&mut self, done: Arc<RwLock<Vec<bool>>>, downloaded: Arc<RwLock<Vec<u64>>>) {
-      let mut now = Instant::now();
-      while !done.read().unwrap().iter().all(|&val| val) {
-         self.print_status(downloaded.clone(), &now);
-         now = Instant::now();
-         thread::sleep(Duration::from_millis(PRINT_DELAY));
-      }
-      self.print_status(downloaded.clone(), &now);
-      println!("");
-   }
-
-   fn print_status(&mut self, downloaded: Arc<RwLock<Vec<u64>>>, now: &Instant) {
-      let downloaded: u64 = downloaded.read().unwrap().iter().sum();
-
-      let elapsed = now.elapsed();
-      let secs = elapsed.as_secs() as f64 + (elapsed.subsec_nanos() as f64 / 1_000_000_000.);
-      let speed = if secs == 0. {
-         0
-      } else {
-         ((downloaded - self.downloaded) as f64 / secs) as u64
-      };
-
-      let (days, hours, mins, secs) = self.calculate_time(downloaded, speed);
-      let remain_time = self.generate_remain_time(days, hours, mins, secs);
-
-      // FIXME: should print something else out if self.size is None
-      let percent = if self.size.unwrap_or(0) == 0 {
-         0.
-      } else {
-         downloaded as f64 / self.size.unwrap() as f64
-      };
-
-      let (speed, prefix) = match number_prefix::binary_prefix(speed as f64) {
-         Standalone(bytes) => (bytes, "".to_string()),
-         Prefixed(prefix, n) => (n, prefix.to_string())
-      };
-
-      match term_size::dimensions() {
-         Some((width, _)) => {
-            let speed_digits = self.count_digits(speed as u64) + 2;
-            let gwidth = width as u64 - self.count_digits((percent * 100.) as u64) -
-                         1 /* percent + % */ - 3 /* brackets + space */ -
-                         remain_time.len() as u64 /* remaining time */ - 7 /* speed + space */ -
-                         speed_digits - prefix.len() as u64;
-            let awidth = if percent * gwidth as f64 >= 1. {
-               1
-            } else {
-               0
-            };
-            let pwidth = (percent * gwidth as f64) as u64 - awidth as u64;
-            let swidth = gwidth - pwidth - 1;
-            write!(self.stdout, "\r[{:=<pwidth$}{}{:swidth$}] ({:.1} {}B/s) {}{}%",
-                   "", if awidth > 0 { ">" } else { "" }, "", speed, prefix, remain_time,
-                   (percent * 100.) as u64, pwidth = pwidth as usize,
-                   swidth = swidth as usize).unwrap();
-         }
-         None => write!(self.stdout, "\r{} / {} [{}%] ({:.1} {}B/sec)",
-                        downloaded, self.size.and_then(|n| Some(n.to_string()))
-                                             .unwrap_or("?".to_string()),
-                        (percent * 100.) as u64, speed, prefix).unwrap()
-      }
-      io::stdout().flush().unwrap();
-      self.downloaded = downloaded;
-   }
-
-   fn count_digits(&self, mut n: u64) -> u64 {
-      let mut digits = 1;
-      while n > 9 {
-         n /= 10;
-         digits += 1;
-      }
-      digits
-   }
-
    fn get_length(&self, client: Arc<Client>, url: Url) -> Option<u64> {
       match client.get(url).send() {
          Ok(resp) => {
@@ -327,42 +247,6 @@ impl Downloader {
          }
          Err(_) => None
       }
-   }
-
-   fn calculate_time(&self, downloaded: u64, speed: u64) -> (u64, u64, u64, u64) {
-      match self.size {
-         Some(size) if speed > 0 => {
-            let total_secs = (size - downloaded) / speed;
-            let secs = total_secs % 60;
-            let total_mins = total_secs / 60;
-            let mins = total_mins % 60;
-            let total_hours = total_mins / 60;
-            let hours = total_hours % 24;
-            let total_days = total_hours / 24;
-            (total_days, hours, mins, secs)
-         }
-         _ => (0, 0, 0, 0)
-      }
-   }
-
-   fn generate_remain_time(&self, days: u64, hours: u64, mins: u64, secs: u64) -> String {
-      let mut remain_time = "".to_string();
-      if days > 0 {
-         remain_time += &format!("{}d", days);
-      }
-      if hours > 0 {
-         remain_time += &format!("{}h", hours);
-      }
-      if mins > 0 {
-         remain_time += &format!("{}m", mins);
-      }
-      if secs > 0 {
-         remain_time += &format!("{}s", secs);
-      }
-      if remain_time.len() > 0 {
-         remain_time += " ";
-      }
-      remain_time
    }
 
    fn info(&mut self, msg: &str) {

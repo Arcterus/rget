@@ -9,9 +9,8 @@
 extern crate reqwest;
 #[macro_use]
 extern crate clap;
-extern crate term_size;
 extern crate term;
-extern crate number_prefix;
+extern crate pbr;
 
 use std::io::{Write};
 use std::process;
