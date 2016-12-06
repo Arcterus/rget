@@ -1,0 +1,15 @@
+[package]
+name = "rget"
+version = "0.1.0"
+authors = ["Arcterus <arcterus@mail.com>"]
+
+[dependencies]
+hyper = "0.9.13"
+clap = "2.19.0"
+term_size = "0.2.1"
+term = "0.4.4"
+number_prefix = "0.2.7"
+# ctrlc = "2.0.1"
+# toml = "0.2.1"
+# ftp = "2.0.0"
+# librsync = "0.2.0"
