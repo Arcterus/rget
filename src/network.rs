@@ -6,10 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use hyper;
-use hyper::{Client, Url};
-use hyper::status::StatusCode;
-use hyper::header::{ContentLength, /*ContentRange,*/ Range, ByteRangeSpec};
+use reqwest::{Client, Url};
+use reqwest::StatusCode;
+use reqwest::header::{ContentLength, /*ContentRange,*/ Range, ByteRangeSpec};
 use std::u64;
 use std::fs::{OpenOptions, File};
 use std::io::{Seek, SeekFrom, BufWriter};
@@ -85,8 +84,11 @@ impl Downloader {
          }
       };
 
+      // Apparently Client contains a connection pool, so reuse the same Client
+      let client = Arc::new(Client::new().unwrap());
+
       let mut parallel = self.parallel;
-      let length = match self.get_length(url.clone()) {
+      let length = match self.get_length(client.clone(), url.clone()) {
          Some(length) => {
             if length == bytes {
                self.warn("file already downloaded");
@@ -130,12 +132,14 @@ impl Downloader {
          let done = done.clone();
          let url = url.clone();
          let output = output.as_ref().to_path_buf();
+         let client = client.clone();
 
          children.push(thread::spawn(move || {
             Downloader::download_url_thread_cb(i,
                                                downloaded,
                                                size,
                                                done,
+                                               client,
                                                url,
                                                output,
                                                length,
@@ -166,13 +170,12 @@ impl Downloader {
                              downloaded: Arc<RwLock<Vec<u64>>>,
                              size: Arc<RwLock<Vec<u64>>>,
                              done: Arc<RwLock<Vec<bool>>>,
+                             client: Arc<Client>,
                              url: Url,
                              output: PathBuf,
                              length: Option<u64>,
                              bytes: u64,
                              parallel: u64) -> Result<(), String> {
-      let client = Client::new();
-
       let mut request = client.get(url);
       if let Some(length) = length {
          let section = (length - bytes) / parallel;
@@ -188,8 +191,9 @@ impl Downloader {
       let result = match request.send() {
          Ok(mut resp) => {
             // FIXME: is this right/all?
-            if resp.status == hyper::Ok || resp.status == StatusCode::PartialContent {
-               let &ContentLength(length) = resp.headers.get().unwrap_or(&ContentLength(u64::MAX));
+            if resp.status() == &StatusCode::Ok || resp.status() == &StatusCode::PartialContent {
+               let &ContentLength(length) = resp.headers().get()
+                                                          .unwrap_or(&ContentLength(u64::MAX));
                size.write().unwrap()[part] = length;
                // TODO: check accept-ranges or whatever
                let mut file = FilePart::create(output, part as u64);
@@ -209,7 +213,7 @@ impl Downloader {
                }
                Ok(())
             } else {
-               Err(format!("received {} from server", resp.status))
+               Err(format!("received {} from server", resp.status()))
             }
          }
          Err(f) => Err(format!("{}", f))
@@ -309,11 +313,11 @@ impl Downloader {
       digits
    }
 
-   fn get_length(&self, url: Url) -> Option<u64> {
-      match Client::new().get(url).send() {
+   fn get_length(&self, client: Arc<Client>, url: Url) -> Option<u64> {
+      match client.get(url).send() {
          Ok(resp) => {
-            if resp.status == hyper::Ok {
-               match resp.headers.get() {
+            if resp.status() == &StatusCode::Ok {
+               match resp.headers().get() {
                   Some(&ContentLength(length)) => Some(length),
                   None => None
                }

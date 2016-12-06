@@ -20,6 +20,7 @@ Features
 * [ ] Verifies the integrity of file downloads
 * [x] Uses multiple connections to potentially speed up downloads
 * [x] Displays download progress using a progress bar
+* [ ] Cleanly handles all known errors
 
 In addition to incomplete features, because rget is in very early stages of
 development, there will likely be bugs (in fact, I _know_ there are bugs).
