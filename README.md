@@ -29,7 +29,7 @@ Please join me in squashing these bugs so we can all download files in peace.
 Requirements
 ------------
 
-* A post-1.0 version of [Rust](https://rust-lang.org) (not sure which is the
+* A post-1.0 version of [Rust](https://www.rust-lang.org) (not sure which is the
 oldest that will work)
 
 Build
