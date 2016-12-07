@@ -11,6 +11,8 @@ extern crate reqwest;
 extern crate clap;
 extern crate term;
 extern crate pbr;
+extern crate toml;
+extern crate rustc_serialize;
 
 use std::io::{Write};
 use std::process;
@@ -19,6 +21,7 @@ use network::Downloader;
 
 mod network;
 mod partial;
+mod util;
 
 const DEFAULT_PARALLEL: &'static str = "4";
 
@@ -53,7 +56,7 @@ fn main() {
       let mut downloader = Downloader::new(parallel);
       if let Err(f) = downloader.download(input, matches.value_of("OUTPUT")) {
          stderr.fg(term::color::RED).unwrap();
-         writeln!(stderr, "{}", f).unwrap();
+         writeln!(stderr, "error: {}", f).unwrap();
       }
    }
 }

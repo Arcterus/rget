@@ -1,7 +1,7 @@
 rget
 ====
 
-[![License](http://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](http://img.shields.io/badge/license-MPL%20v2.0-blue.svg)](LICENSE)
 [![Build Status](https://api.travis-ci.org/Arcterus/rget.svg?branch=master)](https://travis-ci.org/Arcterus/rget)
 [![Build status](https://ci.appveyor.com/api/projects/status/uj0a67ar148kvrau?svg=true)](https://ci.appveyor.com/project/Arcterus/rget)
 
@@ -16,7 +16,7 @@ Features
 * [x] Downloads remote files using HTTP and HTTPS
 * [ ] Downloads files using FTP
 * [ ] Downloads files using Rsync
-* [ ] Saves incomplete downloads to be resumed later (partially set up)
+* [x] Saves incomplete downloads to be resumed later
 * [ ] Verifies the integrity of file downloads
 * [x] Uses multiple connections to potentially speed up downloads
 * [x] Displays download progress using a progress bar

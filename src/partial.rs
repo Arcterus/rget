@@ -6,10 +6,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::fs::{self, File};
-use std::ffi::OsStr;
+use std::fs::{self, File, OpenOptions, Metadata};
 use std::path::{Path, PathBuf};
-use std::io::{self, Write, Read};
+use std::io::{self, Write, Read, SeekFrom, Seek};
+use util;
 //use std::io::{BufReader, BufWriter};
 
 pub struct FilePart {
@@ -22,6 +22,19 @@ impl FilePart {
       let path = FilePart::add_part_extension(output, num);
       FilePart {
          file: File::create(&path).unwrap(),
+         path: path
+      }
+   }
+
+   pub fn load_or_create<P: AsRef<Path>>(output: P, num: u64) -> FilePart {
+      let path = FilePart::add_part_extension(output, num);
+      let mut file = OpenOptions::new().write(true)
+                                       .create(true)
+                                       .open(&path)
+                                       .unwrap();
+      file.seek(SeekFrom::End(0)).unwrap();
+      FilePart {
+         file: file,
          path: path
       }
    }
@@ -39,10 +52,12 @@ impl FilePart {
       fs::remove_file(self.path).unwrap();
    }
 
+   pub fn metadata(&self) -> io::Result<Metadata> {
+      self.file.metadata()
+   }
+
    fn add_part_extension<P: AsRef<Path>>(path: P, num: u64) -> PathBuf {
-      let mut file_ext = path.as_ref().extension().unwrap_or(OsStr::new("")).to_os_string();
-      file_ext.push(OsStr::new(&(".part".to_string() + &num.to_string())));
-      path.as_ref().with_extension(file_ext)
+      util::add_path_extension(path, &format!("part{}", num))
    }
 }
 
