@@ -1,6 +1,6 @@
 [package]
 name = "rget"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Arcterus <arcterus@mail.com>"]
 description = "A download accelerator partially inspired by https://github.com/huydx/hget."
 license = "MPL-2.0"
@@ -9,12 +9,13 @@ homepage = "https://github.com/Arcterus/rget"
 repository = "https://github.com/Arcterus/rget"
 
 [dependencies]
-reqwest = "0.1.0"
-clap = "2.19.0"
-term = "0.4.4"
-pbr = "1.0.0-alpha.1"
+reqwest = "0.6"
+clap = "2.19"
+term = "0.4"
+pbr = "1.0"
 # ctrlc = "2.0.1"
-toml = "0.2.1"
-rustc-serialize = "0.3"
+toml = "0.4"
+serde = "1.0"
+serde_derive = "1.0"
 # ftp = "2.0.0"
 # librsync = "0.2.0"

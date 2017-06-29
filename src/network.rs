@@ -20,7 +20,7 @@ use std::time::Duration;
 use std::mem;
 use term::{self, StdoutTerminal, StderrTerminal};
 use pbr::{MultiBar, ProgressBar, Units};
-use toml;
+use toml::{self, Value};
 
 use partial::FilePart;
 use util;
@@ -251,9 +251,8 @@ impl Downloader {
             if let Err(f) = file.read_to_string(&mut data) {
                return Err(format!("{}", f));
             }
-            let mut parser = toml::Parser::new(&data);
-            match parser.parse() {
-               Some(table) => {
+            match toml::from_str::<Value>(&data) {
+               Ok(table) => {
                   let parallel = match table.get("parallel") {
                      Some(n) => match n.as_integer() {
                         Some(num) => num as u64,
@@ -277,7 +276,7 @@ impl Downloader {
                   };
                   Ok((parallel, url, false))
                }
-               None => Err(format!("invalid data in download configuration: {:?}", parser.errors))
+               Err(f) => Err(format!("invalid data in download configuration: {:?}", f))
             }
          }
          Err(ref f) if f.kind() == io::ErrorKind::NotFound => {
@@ -294,7 +293,7 @@ impl Downloader {
                                              output: P,
                                              url: Url,
                                              parallel: u64) -> Result<(), String> {
-      #[derive(RustcEncodable)]
+      #[derive(Serialize)]
       struct DownloadConfig {
          url: String,
          parallel: u64
@@ -305,7 +304,7 @@ impl Downloader {
       };
       match File::create(util::add_path_extension(output, "toml")) {
          Ok(mut file) => {
-            file.write_all(toml::encode_str(&config).as_bytes()).unwrap();
+            file.write_all(toml::to_string(&config).unwrap().as_bytes()).unwrap();
             Ok(())
          }
          Err(f) => Err(format!("{}", f))

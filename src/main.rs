@@ -12,7 +12,8 @@ extern crate clap;
 extern crate term;
 extern crate pbr;
 extern crate toml;
-extern crate rustc_serialize;
+#[macro_use]
+extern crate serde_derive;
 
 use std::io::{Write};
 use std::process;
