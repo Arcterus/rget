@@ -6,25 +6,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-extern crate reqwest;
 #[macro_use]
 extern crate clap;
 extern crate term;
-extern crate pbr;
-extern crate toml;
-#[macro_use]
-extern crate serde_derive;
+extern crate rget;
 
 use std::io::{Write};
 use std::process;
 
-use network::Downloader;
-
-mod network;
-mod partial;
-mod util;
-mod error;
-mod output;
+use rget::Downloader;
 
 const DEFAULT_PARALLEL: &'static str = "4";
 

@@ -1,6 +1,6 @@
 [package]
 name = "rget"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Arcterus <arcterus@mail.com>"]
 description = "A download accelerator partially inspired by https://github.com/huydx/hget."
 license = "MPL-2.0"
@@ -19,3 +19,6 @@ serde = "1.0"
 serde_derive = "1.0"
 # ftp = "2.0.0"
 # librsync = "0.2.0"
+
+[badges]
+travis-ci = { repository = "https://github.com/Arcterus/rget" }
