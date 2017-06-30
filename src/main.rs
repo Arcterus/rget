@@ -1,6 +1,6 @@
 // This file is part of rget.
 //
-// Copyright (C) 2016 Arcterus (Alex Lyon) and rget contributors.
+// Copyright (C) 2016-2017 Arcterus (Alex Lyon) and rget contributors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -23,6 +23,8 @@ use network::Downloader;
 mod network;
 mod partial;
 mod util;
+mod error;
+mod output;
 
 const DEFAULT_PARALLEL: &'static str = "4";
 
