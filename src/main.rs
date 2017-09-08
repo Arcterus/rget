@@ -28,6 +28,7 @@ fn main() {
       (@arg OUTPUT:   -o --output   +takes_value "Output file name")
       (@arg USERNAME: -u --user     +takes_value "Username")
       (@arg PASSWORD: -p --password +takes_value "Password")
+      (@arg INSECURE: --insecure "Disable hostname verification")
       (@arg INPUT: +required "URL of the file to download")
       (@subcommand validate =>
          (about: "Validates a downloaded file")
@@ -52,6 +53,7 @@ fn main() {
       let config = DownloaderConfig {
           username: matches.value_of("USERNAME").map(Into::into),
           password: matches.value_of("PASSWORD").map(Into::into),
+          insecure: matches.is_present("INSECURE")
       };
       let mut downloader = Downloader::new(parallel, config);
       if let Err(f) = downloader.download(input, matches.value_of("OUTPUT")) {

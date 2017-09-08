@@ -38,6 +38,7 @@ const PRINT_DELAY: u64 = 100;
 pub struct DownloaderConfig {
     pub username: Option<String>,
     pub password: Option<String>,
+    pub insecure: bool,
 }
 
 pub struct Downloader<T: OutputManager> {
@@ -83,7 +84,11 @@ impl<T: OutputManager> Downloader<T> {
                                    mut parallel: u64,
                                    mut scratch: bool) -> error::Result<()> {
       // Apparently Client contains a connection pool, so reuse the same Client
-      let client = Arc::new(Client::new().unwrap());
+      let mut client_builder = Client::builder().unwrap();
+      if self.config.insecure {
+          client_builder.danger_disable_hostname_verification();
+      }
+      let client = Arc::new(client_builder.build().unwrap());
       //let config = Arc::new(self.config.clone());
 
       let length = match self.get_length(client.clone(), url.clone()) {
