@@ -375,7 +375,15 @@ impl<T: OutputManager> Downloader<T> {
    }
 
    fn get_length(&self, client: Arc<Client>, url: Url) -> Option<u64> {
-      match client.get(url).unwrap().send() {
+      let mut request = client.get(url).unwrap();
+      if let Some(ref username) = self.config.username {
+         request.header(Authorization(Basic {
+            username: username.to_owned(),
+            password: self.config.password.to_owned(),
+         }));
+      }
+
+      match request.send() {
          Ok(resp) => {
             if resp.status() == StatusCode::Ok {
                match resp.headers().get() {
