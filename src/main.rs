@@ -15,16 +15,19 @@ use std::io::{Write};
 use std::process;
 
 use rget::Downloader;
+use rget::network::DownloaderConfig;
 
 const DEFAULT_PARALLEL: &'static str = "4";
 
 fn main() {
-   let matches = clap_app!(app =>
+    let matches = clap_app!(rget =>
       (version: crate_version!())
       (author: crate_authors!())
       (about: "Download accelerator written in Rust")
       (@arg PARALLEL: -n --parallel +takes_value {is_number} /*default_value: "4"*/ "Number of parallel downloads")
-      (@arg OUTPUT: -o --output +takes_value "Output file name")
+      (@arg OUTPUT:   -o --output   +takes_value "Output file name")
+      (@arg USERNAME: -u --user     +takes_value "Username")
+      (@arg PASSWORD: -p --password +takes_value "Password")
       (@arg INPUT: +required "URL of the file to download")
       (@subcommand validate =>
          (about: "Validates a downloaded file")
@@ -46,7 +49,11 @@ fn main() {
    if let Some(_) = matches.subcommand_matches("validate") {
       unimplemented!();
    } else {
-      let mut downloader = Downloader::new(parallel);
+      let config = DownloaderConfig {
+          username: matches.value_of("USERNAME").map(Into::into),
+          password: matches.value_of("PASSWORD").map(Into::into),
+      };
+      let mut downloader = Downloader::new(parallel, config);
       if let Err(f) = downloader.download(input, matches.value_of("OUTPUT")) {
          stderr.fg(term::color::RED).unwrap();
          writeln!(stderr, "error: {}", f).unwrap();

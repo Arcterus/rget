@@ -8,7 +8,14 @@
 
 use reqwest::{Client, Url};
 use reqwest::StatusCode;
-use reqwest::header::{ContentLength, /*ContentRange,*/ Range, ByteRangeSpec};
+use reqwest::header::{
+    Authorization,
+    Basic,
+    ByteRangeSpec,
+    ContentLength,
+    /*ContentRange,*/
+    Range,
+};
 use std::u64;
 use std::fs::{self, File, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -27,21 +34,29 @@ use output::{OutputManager, StdOutputManager};
 
 const PRINT_DELAY: u64 = 100;
 
+#[derive(Default, Clone)]
+pub struct DownloaderConfig {
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
 pub struct Downloader<T: OutputManager> {
    parallel: u64,
+   config: DownloaderConfig,
    output: T
 }
 
 impl Downloader<StdOutputManager> {
-   pub fn new(parallel: u64) -> Downloader<StdOutputManager> {
-      Downloader::with_output_manager(parallel, StdOutputManager::new())
+   pub fn new(parallel: u64, config: DownloaderConfig) -> Downloader<StdOutputManager> {
+      Downloader::with_output_manager(parallel, config, StdOutputManager::new())
    }
 }
 
 impl<T: OutputManager> Downloader<T> {
-   pub fn with_output_manager(parallel: u64, output: T) -> Downloader<T> {
+   pub fn with_output_manager(parallel: u64, config: DownloaderConfig, output: T) -> Downloader<T> {
       Downloader {
          parallel: parallel,
+         config: config,
          output: output
       }
    }
@@ -69,6 +84,7 @@ impl<T: OutputManager> Downloader<T> {
                                    mut scratch: bool) -> error::Result<()> {
       // Apparently Client contains a connection pool, so reuse the same Client
       let client = Arc::new(Client::new().unwrap());
+      //let config = Arc::new(self.config.clone());
 
       let length = match self.get_length(client.clone(), url.clone()) {
          Some(length) => {
@@ -93,6 +109,7 @@ impl<T: OutputManager> Downloader<T> {
          let url = url.clone();
          let output = output.as_ref().to_path_buf();
          let client = client.clone();
+         let config = self.config.clone();
          let mut progbar = mb.create_bar(100);
 
          progbar.set_max_refresh_rate(Some(Duration::from_millis(PRINT_DELAY)));
@@ -107,6 +124,7 @@ impl<T: OutputManager> Downloader<T> {
                                                output,
                                                length,
                                                parallel,
+                                               config,
                                                scratch)
          }));
       }
@@ -148,6 +166,7 @@ impl<T: OutputManager> Downloader<T> {
                                   output: PathBuf,
                                   length: Option<u64>,
                                   parallel: u64,
+                                  config: DownloaderConfig,
                                   scratch: bool) -> error::Result<()> {
       pb.message("Waiting  : ");
 
@@ -182,6 +201,13 @@ impl<T: OutputManager> Downloader<T> {
             (part + 1) * section
          } - 1;
          request = request.header(Range::Bytes(vec![ByteRangeSpec::FromTo(from, to)]));
+      }
+
+      if let Some(username) = config.username {
+         request = request.header(Authorization(Basic {
+             username: username,
+             password: config.password,
+         }));
       }
 
       let part = part as usize;
@@ -223,7 +249,7 @@ impl<T: OutputManager> Downloader<T> {
             Err(Error::new(ErrorReason::FailedRequest(f)))
          }
       };
-      
+
       result
    }
 
