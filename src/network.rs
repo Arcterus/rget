@@ -185,7 +185,7 @@ impl<T: OutputManager> Downloader<T> {
          (file, len)
       };
 
-      let mut request = client.get(url);
+      let mut request = client.get(url).unwrap();
       if let Some(length) = length {
          let section = length / parallel;
          if section == filelen || (part + 1 == parallel && length - section * part == filelen) {
@@ -200,11 +200,11 @@ impl<T: OutputManager> Downloader<T> {
          } else {
             (part + 1) * section
          } - 1;
-         request = request.header(Range::Bytes(vec![ByteRangeSpec::FromTo(from, to)]));
+         request.header(Range::Bytes(vec![ByteRangeSpec::FromTo(from, to)]));
       }
 
       if let Some(username) = config.username {
-         request = request.header(Authorization(Basic {
+         request.header(Authorization(Basic {
              username: username,
              password: config.password,
          }));
@@ -215,7 +215,7 @@ impl<T: OutputManager> Downloader<T> {
          Ok(mut resp) => {
             pb.message("Connected: ");
             // FIXME: is this right/all?
-            if resp.status() == &StatusCode::Ok || resp.status() == &StatusCode::PartialContent {
+            if resp.status() == StatusCode::Ok || resp.status() == StatusCode::PartialContent {
                let &ContentLength(length) = resp.headers().get()
                                                           .unwrap_or(&ContentLength(u64::MAX));
                pb.total = length;
@@ -241,7 +241,7 @@ impl<T: OutputManager> Downloader<T> {
                Ok(())
             } else {
                pb.finish_print(&format!("Failed   : {}.part{}", output.display(), part));
-               Err(Error::new(ErrorReason::HttpErrorCode(*resp.status())))
+               Err(Error::new(ErrorReason::HttpErrorCode(resp.status())))
             }
          }
          Err(f) => {
@@ -280,27 +280,31 @@ impl<T: OutputManager> Downloader<T> {
 
    fn reload_state<P: AsRef<Path>>(&mut self,
                                    output_path: P,
-                                   url: Option<Url>) -> error::Result<(u64, Url, bool)> {
+                                   given_url: Option<Url>) -> error::Result<(u64, Url, bool)> {
       match File::open(util::add_path_extension(output_path, "toml")) {
          Ok(mut file) => {
             let mut data = String::new();
+
             if let Err(f) = file.read_to_string(&mut data) {
                return Err(Error::new(ErrorReason::IO(f)));
             }
+
             match toml::from_str::<Value>(&data) {
                Ok(table) => {
+
                   let parallel = match table.get("parallel") {
                      Some(n) => match n.as_integer() {
                         Some(num) => num as u64,
                         None => return Err(Error::new(ErrorReason::InvalidConfig(
-                                             "number of parallel downloads in download \
-                                             configuration must be an integer")))
+                                           "number of parallel downloads in download \
+                                           configuration must be an integer")))
                      },
                      None => return Err(Error::new(ErrorReason::InvalidConfig(
-                                          "could not find number of parallel downloads in \
-                                          configuration")))
+                                        "could not find number of parallel downloads in \
+                                        configuration")))
                   };
-                  let url = match table.get("url") {
+
+                  let stored_url = match table.get("url") {
                      Some(url) => match url.as_str() {
                         Some(url_str) => match Url::parse(url_str) {
                            Ok(url) => url,
@@ -314,17 +318,22 @@ impl<T: OutputManager> Downloader<T> {
                                           "could not find URL for download in \
                                           configuration")))
                   };
-                  Ok((parallel, url, false))
-               }
+
+                  Ok((parallel, given_url.unwrap_or(stored_url), false))
+
+               },
+
                Err(f) => Err(Error::new(ErrorReason::InvalidToml(f)))
             }
-         }
+         },
+
          Err(ref f) if f.kind() == io::ErrorKind::NotFound => {
-            match url {
+            match given_url {
                Some(url) => Ok((self.parallel, url, true)),
                None => Err(Error::new(ErrorReason::MissingUrl))
             }
-         }
+         },
+
          Err(f) => Err(Error::new(ErrorReason::IO(f)))
       }
    }
@@ -361,9 +370,9 @@ impl<T: OutputManager> Downloader<T> {
    }
 
    fn get_length(&self, client: Arc<Client>, url: Url) -> Option<u64> {
-      match client.get(url).send() {
+      match client.get(url).unwrap().send() {
          Ok(resp) => {
-            if resp.status() == &StatusCode::Ok {
+            if resp.status() == StatusCode::Ok {
                match resp.headers().get() {
                   Some(&ContentLength(length)) => Some(length),
                   None => None

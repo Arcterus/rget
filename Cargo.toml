@@ -9,7 +9,7 @@ homepage = "https://github.com/Arcterus/rget"
 repository = "https://github.com/Arcterus/rget"
 
 [dependencies]
-reqwest = "0.6"
+reqwest = "0.7"
 clap = "2"
 term = "0.4"
 pbr = "1.0"
