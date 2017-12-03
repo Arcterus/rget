@@ -14,8 +14,8 @@ extern crate rget;
 use std::io::{Write};
 use std::process;
 
-use rget::Downloader;
-use rget::network::DownloaderConfig;
+use rget::{Downloader, Rget};
+use rget::config::Config;
 
 const DEFAULT_PARALLEL: &'static str = "4";
 
@@ -50,13 +50,15 @@ fn main() {
    if let Some(_) = matches.subcommand_matches("validate") {
       unimplemented!();
    } else {
-      let config = DownloaderConfig {
+      let config = Config {
           username: matches.value_of("USERNAME").map(Into::into),
           password: matches.value_of("PASSWORD").map(Into::into),
-          insecure: matches.is_present("INSECURE")
+          insecure: matches.is_present("INSECURE"),
+
+          parallel: parallel
       };
-      let mut downloader = Downloader::new(parallel, config);
-      if let Err(f) = downloader.download(input, matches.value_of("OUTPUT")) {
+      let mut downloader = Rget::new(config);
+      if let Err(f) = downloader.download::<rget::ui::multibar::MultibarUi, _>(input, matches.value_of("OUTPUT")) {
          stderr.fg(term::color::RED).unwrap();
          writeln!(stderr, "error: {}", f).unwrap();
       }

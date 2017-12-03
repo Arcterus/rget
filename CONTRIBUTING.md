@@ -24,7 +24,5 @@ $ git push
 ```
 
 When everything's on GitHub,
-[submit a pull request](https://github.com/Arcterus/rget/compare/).  How
-quickly you receive a response on the pull request will be subject to whether
-or not the maintainer(s) (a.k.a.
-[Arcterus/Alex Lyon](https://github.com/Arcterus)) are available at the moment.
+[submit a pull request](https://github.com/Arcterus/rget/compare/).  Assuming
+you don't need to make any changes to your code, you're now done!

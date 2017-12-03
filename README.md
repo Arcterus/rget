@@ -8,30 +8,30 @@ rget
 
 This program is a download accelerator primarily inspired by
 [huydx/hget](https://github.com/huydx/hget).  Essentially, I was bored one
-night and now here we are.  Barring any bugs, rget should work on both Windows
+night and now here we are.  Rget is designed to work on both Windows
 and Unix-like platforms.
 
 Features
 --------
 
 * [x] Downloads remote files using HTTP and HTTPS
-* [ ] Downloads files using FTP
-* [ ] Downloads files using Rsync
+* [x] Downloads files using FTP and FTPS
+* [ ] Downloads files using rsync
 * [x] Saves incomplete downloads to be resumed later
 * [ ] Verifies the integrity of file downloads
 * [x] Uses multiple connections to potentially speed up downloads
 * [x] Displays download progress using a progress bar
+* [ ] Displays text in the user's native language
 
 In addition to incomplete features, because rget is in very early stages of
-development, there will likely be bugs.  If you encounter any please let me
-know or submit a pull request squashing the bug so we can all download files
-worry-free.
+development, there will likely be bugs.  If you encounter any please create an
+issue.  If you have time, maybe you could even submit a pull request fixing the
+problem. ;)
 
 Requirements
 ------------
 
-* A post-1.0 version of [Rust](https://www.rust-lang.org) (not sure which is the
-oldest that will work)
+* [Rust](https://www.rust-lang.org) (>= 1.18.0)
 
 Library Usage
 -------------
@@ -39,7 +39,7 @@ Library Usage
 Add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
-rget = "0.3"
+rget = "0.4"
 ```
 
 Build

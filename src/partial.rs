@@ -10,7 +10,6 @@ use std::fs::{self, File, OpenOptions, Metadata};
 use std::path::{Path, PathBuf};
 use std::io::{self, Write, Read, SeekFrom, Seek};
 use util;
-//use std::io::{BufReader, BufWriter};
 
 pub struct FilePart {
    file: File,

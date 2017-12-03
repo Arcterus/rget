@@ -6,60 +6,60 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::fmt::{self, Display, Formatter};
 use reqwest::{self, StatusCode};
 use std::io;
 use toml;
-use std::any::Any;
+
+use failure::Error;
 
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-#[derive(Debug)]
-pub enum ErrorReason {
-   IO(io::Error),
+#[derive(Debug, Fail)]
+pub enum RgetError {
+   #[fail(display = "{}", _0)]
+   Io(#[cause] io::Error),
+
+   #[fail(display = "no download configuration found and no valid URL given")]
    MissingUrl,
+
+   #[fail(display = "received {} from server", _0)]
    HttpErrorCode(StatusCode),
-   FailedRequest(reqwest::Error),
+
+   #[fail(display = "{}", _0)]
+   FailedRequest(#[cause] reqwest::Error),
+
+   #[fail(display = "{}", _0)]
    InvalidConfig(&'static str),
-   InvalidToml(toml::de::Error),
-   InvalidUrl(reqwest::UrlError),
-   FailedThread(Box<Any + Send + 'static>),
-   Multiple(Vec<Error>)
+
+   #[fail(display = "invalid data in download configuration: {:?}", _0)]
+   InvalidToml(#[cause] toml::de::Error),
+
+   #[fail(display = "invalid data in download configuration: {:?}", _0)]
+   InvalidDownloadConfig(#[cause] toml::ser::Error),
+
+   #[fail(display = "{}", _0)]
+   InvalidUrl(#[cause] reqwest::UrlError),
+
+   #[fail(display = "{}", _0)]
+   FailedThread(String),
+
+   #[fail(display = "{:?}", _0)]
+   Multiple(Vec<RgetError>)
 }
 
-#[derive(Debug)]
-pub struct Error {
-   reason: ErrorReason
-}
-
-impl Error {
-   pub fn new(reason: ErrorReason) -> Error {
-      Error {
-         reason: reason
-      }
-   }
-}
-
-impl ErrorReason {
-   fn to_string(&self) -> String {
-      match *self {
-         ErrorReason::IO(ref err) => format!("{}", err),
-         ErrorReason::MissingUrl => "no download configuration found and no valid URL given".to_string(),
-         ErrorReason::HttpErrorCode(ref status) => format!("received {} from server", status),
-         ErrorReason::FailedRequest(ref err) => format!("{}", err),
-         ErrorReason::InvalidConfig(msg) => msg.to_string(),
-         ErrorReason::InvalidToml(ref err) => format!("invalid data in download configuration: {:?}", err),
-         ErrorReason::InvalidUrl(ref err) => format!("{}", err),
-         ErrorReason::FailedThread(ref err) => format!("{:?}", err),
-         ErrorReason::Multiple(ref errors) => {
-            errors.iter().fold("".to_string(), |acc, ref err| format!("{}\n{}", acc, err))
+macro_rules! error_impl {
+   ($typ:ty, $rget:expr) => {
+      impl From<$typ> for RgetError {
+         fn from(err: $typ) -> Self {
+            $rget(err)
          }
       }
    }
 }
 
-impl Display for Error {
-   fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-      write!(fmt, "{}", self.reason.to_string())
-   }
-}
+error_impl!(io::Error, RgetError::Io);
+error_impl!(StatusCode, RgetError::HttpErrorCode);
+error_impl!(reqwest::Error, RgetError::FailedRequest);
+error_impl!(toml::de::Error, RgetError::InvalidToml);
+error_impl!(toml::ser::Error, RgetError::InvalidDownloadConfig);
+error_impl!(reqwest::UrlError, RgetError::InvalidUrl);
