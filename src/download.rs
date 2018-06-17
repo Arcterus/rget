@@ -7,7 +7,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use broadcast::BroadcastWriter;
-use number_prefix::{decimal_prefix, Prefixed, Standalone};
+use number_prefix::{binary_prefix, Prefixed, Standalone};
 use reqwest::header::{
    Authorization, Basic, ByteRangeSpec, ContentLength, /*ContentRange,*/
    Range,
@@ -109,7 +109,7 @@ impl<T: OutputManager> DownloaderImpl for Rget<T> {
 
       let length = match self.get_length(client.clone(), config.url.clone()) {
          Some(length) => {
-            let (disp_len, units) = match decimal_prefix(length as f64) {
+            let (disp_len, units) = match binary_prefix(length as f64) {
                Standalone(bytes) => (bytes, "bytes".to_string()),
                Prefixed(prefix, n) => (n, format!("{}B", prefix)),
             };
