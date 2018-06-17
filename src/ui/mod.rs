@@ -1,7 +1,10 @@
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-pub mod multibar;
+#[cfg(feature = "indicatif")]
+pub mod multibar_indicatif;
+#[cfg(feature = "pbr")]
+pub mod multibar_pbr;
 
 pub trait Interface: Send {
    type Part: PartInterface;

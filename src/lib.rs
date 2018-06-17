@@ -6,7 +6,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+#[cfg(feature = "indicatif")]
+extern crate indicatif;
+
+#[cfg(feature = "pbr")]
 extern crate pbr;
+
 extern crate reqwest;
 extern crate serde;
 extern crate term;

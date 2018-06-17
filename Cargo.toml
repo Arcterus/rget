@@ -8,11 +8,13 @@ readme = "README.md"
 homepage = "https://github.com/Arcterus/rget"
 repository = "https://github.com/Arcterus/rget"
 
+[features]
+default = ["indicatif"]
+
 [dependencies]
 reqwest = "0.8"
 clap = "2.27"
 term = "0.4"
-pbr = "1.0"
 # ctrlc = "2.0.1"
 toml = "0.4"
 serde = "1.0"
@@ -25,6 +27,12 @@ broadcast = "0.1.0"
 # NOTE: ftp uses an old version of ssl for secure, so it doesn't compile
 ftp = "2.2.1"
 # librsync = "0.2.0"
+indicatif = { version = "0.9", optional = true }
+pbr = {version = "1.0.1", optional = true}
+
+[[bin]]
+name = "rget"
+required-features = ["indicatif"]
 
 [badges]
 travis-ci = { repository = "Arcterus/rget" }
