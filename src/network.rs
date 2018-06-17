@@ -32,7 +32,7 @@ use output::{OutputManager, StdOutputManager};
 /// ```
 pub struct Rget<T: OutputManager> {
    pub(crate) config: Config,
-   pub(crate) output: T
+   pub(crate) output: T,
 }
 
 impl Rget<StdOutputManager> {
@@ -45,7 +45,7 @@ impl<T: OutputManager> Rget<T> {
    pub fn with_output_manager(config: Config, output: T) -> Rget<T> {
       Rget {
          config: config,
-         output: output
+         output: output,
       }
    }
 }

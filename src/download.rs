@@ -6,50 +6,66 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use reqwest::{Client, RequestBuilder, Url};
-use reqwest::StatusCode;
+use broadcast::BroadcastWriter;
+use number_prefix::{decimal_prefix, Prefixed, Standalone};
 use reqwest::header::{
-   Authorization,
-   Basic,
-   ByteRangeSpec,
-   ContentLength,
-   /*ContentRange,*/
+   Authorization, Basic, ByteRangeSpec, ContentLength, /*ContentRange,*/
    Range,
 };
-use std::u64;
-use std::fs::OpenOptions;
-use std::path::{Path, PathBuf};
-use std::io::{self, BufWriter};
-use std::thread;
-use std::sync::Arc;
+use reqwest::StatusCode;
+use reqwest::{Client, RequestBuilder, Url};
 use std::borrow::Borrow;
 use std::convert::Into;
-use number_prefix::{decimal_prefix, Standalone, Prefixed};
-use broadcast::BroadcastWriter;
+use std::fs::OpenOptions;
+use std::io::{self, BufWriter};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::thread;
+use std::u64;
 
-use network::Rget;
 use config::{Config, DownloadConfig};
-use partial::FilePart;
-use util;
 use error::RgetError;
+use network::Rget;
 use output::OutputManager;
+use partial::FilePart;
 use ui::{Interface, PartInterface, PartWriter};
+use util;
 
 pub trait Downloader {
-   fn download<I: Interface + 'static, P: AsRef<Path>>(&mut self, input: &str, output: Option<P>) -> Result<(), RgetError>;
+   fn download<I: Interface + 'static, P: AsRef<Path>>(
+      &mut self,
+      input: &str,
+      output: Option<P>,
+   ) -> Result<(), RgetError>;
 }
 
 impl<T: OutputManager> Downloader for Rget<T> {
-   fn download<I: Interface + 'static, P: AsRef<Path>>(&mut self, input: &str, output: Option<P>) -> Result<(), RgetError> {
+   fn download<I: Interface + 'static, P: AsRef<Path>>(
+      &mut self,
+      input: &str,
+      output: Option<P>,
+   ) -> Result<(), RgetError> {
       let (output_path, url) = match Url::parse(input) {
          Ok(ref url) if url.scheme() != "file" => {
             // FIXME: still won't work if last character in url is /
             let closure = || Path::new(input.rsplit('/').next().unwrap());
-            (output.as_ref().map(AsRef::as_ref).unwrap_or_else(closure), Some(url.clone()))
+            (
+               output.as_ref().map(AsRef::as_ref).unwrap_or_else(closure),
+               Some(url.clone()),
+            )
          }
          _ => {
-            let closure = || Path::new(input.trim_left_matches("file://").trim_right_matches(".toml"));
-            (output.as_ref().map(AsRef::as_ref).unwrap_or_else(closure), None)
+            let closure = || {
+               Path::new(
+                  input
+                     .trim_left_matches("file://")
+                     .trim_right_matches(".toml"),
+               )
+            };
+            (
+               output.as_ref().map(AsRef::as_ref).unwrap_or_else(closure),
+               None,
+            )
          }
       };
 
@@ -60,26 +76,30 @@ impl<T: OutputManager> Downloader for Rget<T> {
 
 /// A private trait so less state needs to be explicitly passed to each method.
 trait DownloaderImpl {
-   fn download_url<I: Interface + 'static>(&mut self,
-                   config: DownloadConfig,
-                   output: &Path,
-                   scratch: bool) -> Result<(), RgetError>;
+   fn download_url<I: Interface + 'static>(
+      &mut self,
+      config: DownloadConfig,
+      output: &Path,
+      scratch: bool,
+   ) -> Result<(), RgetError>;
    // TODO: this may be better as part of Rget (so it can be reused for other impls)
-   fn merge_parts(&self,
-                  parallel: u64,
-                  output_path: &Path) -> Result<(), RgetError>;
+   fn merge_parts(&self, parallel: u64, output_path: &Path) -> Result<(), RgetError>;
    // TODO: this may be better as part of Rget (so it can be reused for other impls)
-   fn reload_state(&mut self,
-                   output_path: &Path,
-                   given_url: Option<Url>) -> Result<(DownloadConfig, bool), RgetError>;
+   fn reload_state(
+      &mut self,
+      output_path: &Path,
+      given_url: Option<Url>,
+   ) -> Result<(DownloadConfig, bool), RgetError>;
    fn get_length(&self, client: Arc<Client>, url: Url) -> Option<u64>;
 }
 
 impl<T: OutputManager> DownloaderImpl for Rget<T> {
-   fn download_url<I: Interface + 'static>(&mut self,
-                   mut config: DownloadConfig,
-                   output: &Path,
-                   mut scratch: bool) -> Result<(), RgetError> {
+   fn download_url<I: Interface + 'static>(
+      &mut self,
+      mut config: DownloadConfig,
+      output: &Path,
+      mut scratch: bool,
+   ) -> Result<(), RgetError> {
       // Apparently Client contains a connection pool, so reuse the same Client
       let mut client_builder = Client::builder();
       if self.config.insecure {
@@ -91,13 +111,17 @@ impl<T: OutputManager> DownloaderImpl for Rget<T> {
          Some(length) => {
             let (disp_len, units) = match decimal_prefix(length as f64) {
                Standalone(bytes) => (bytes, "bytes".to_string()),
-               Prefixed(prefix, n) => (n, format!("{}B", prefix))
+               Prefixed(prefix, n) => (n, format!("{}B", prefix)),
             };
-            self.output.info(&format!("remote file size: {} {}", disp_len, units));
+            self
+               .output
+               .info(&format!("remote file size: {} {}", disp_len, units));
             Some(length)
          }
          None => {
-            self.output.warn("could not determine length of file, disabling parallel download");
+            self
+               .output
+               .warn("could not determine length of file, disabling parallel download");
             self.output.warn("remote file size: unknown");
             scratch = true;
             config.parallel = 1;
@@ -105,7 +129,9 @@ impl<T: OutputManager> DownloaderImpl for Rget<T> {
          }
       };
 
-      self.output.info(&format!("using a total of {} connections", config.parallel));
+      self
+         .output
+         .info(&format!("using a total of {} connections", config.parallel));
 
       let mut children = vec![];
       let mut interface = I::init(output.to_path_buf());
@@ -119,20 +145,22 @@ impl<T: OutputManager> DownloaderImpl for Rget<T> {
          let interface = interface.part_interface();
 
          children.push(thread::spawn(move || {
-            download_callback(i,
-                              interface,
-                              client,
-                              download_config,
-                              output,
-                              length,
-                              downloader_config,
-                              scratch)
+            download_callback(
+               i,
+               interface,
+               client,
+               download_config,
+               output,
+               length,
+               downloader_config,
+               scratch,
+            )
          }));
       }
 
       if scratch {
          if let Err(f) = config.create() {
-            self.output.error(&format!("{}", f));  // continue, but let the user know that they can't stop the download
+            self.output.error(&format!("{}", f)); // continue, but let the user know that they can't stop the download
          }
       }
 
@@ -140,13 +168,14 @@ impl<T: OutputManager> DownloaderImpl for Rget<T> {
          interface.listen();
       });
 
-      let errors = children.into_iter().filter_map(|child| {
-         match child.join() {
+      let errors = children
+         .into_iter()
+         .filter_map(|child| match child.join() {
             Ok(Err(f)) => Some(f),
             Err(f) => Some(RgetError::FailedThread(format!("{:?}", f))),
-            _ => None
-         }
-      }).collect::<Vec<_>>();
+            _ => None,
+         })
+         .collect::<Vec<_>>();
 
       if errors.len() > 0 {
          Err(RgetError::Multiple(errors))
@@ -158,12 +187,11 @@ impl<T: OutputManager> DownloaderImpl for Rget<T> {
       }
    }
 
-   fn merge_parts(&self,
-                  parallel: u64,
-                  output_path: &Path) -> Result<(), RgetError> {
-      let file = OpenOptions::new().write(true)
-                                   .create(true)
-                                   .open(&output_path)?;
+   fn merge_parts(&self, parallel: u64, output_path: &Path) -> Result<(), RgetError> {
+      let file = OpenOptions::new()
+         .write(true)
+         .create(true)
+         .open(&output_path)?;
 
       let mut output = BufWriter::new(file);
       let mut total_size = 0;
@@ -177,9 +205,11 @@ impl<T: OutputManager> DownloaderImpl for Rget<T> {
       Ok(())
    }
 
-   fn reload_state(&mut self,
-                   output_path: &Path,
-                   given_url: Option<Url>) -> Result<(DownloadConfig, bool), RgetError> {
+   fn reload_state(
+      &mut self,
+      output_path: &Path,
+      given_url: Option<Url>,
+   ) -> Result<(DownloadConfig, bool), RgetError> {
       let path = util::add_path_extension(output_path, "toml");
       match DownloadConfig::load(&path) {
          Ok(mut config) => {
@@ -189,24 +219,22 @@ impl<T: OutputManager> DownloaderImpl for Rget<T> {
             config.path = path;
 
             Ok((config, false))
-         },
+         }
 
-         Err(RgetError::Io(ref f)) if f.kind() == io::ErrorKind::NotFound => {
-            match given_url {
-               Some(url) => {
-                  let config = DownloadConfig {
-                     path: path,
+         Err(RgetError::Io(ref f)) if f.kind() == io::ErrorKind::NotFound => match given_url {
+            Some(url) => {
+               let config = DownloadConfig {
+                  path: path,
 
-                     url: url,
-                     parallel: self.config.parallel
-                  };
-                  Ok((config, true))
-               }
-               None => Err(RgetError::MissingUrl)
+                  url: url,
+                  parallel: self.config.parallel,
+               };
+               Ok((config, true))
             }
+            None => Err(RgetError::MissingUrl),
          },
 
-         Err(f) => Err(f.into())
+         Err(f) => Err(f.into()),
       }
    }
 
@@ -232,21 +260,23 @@ impl<T: OutputManager> DownloaderImpl for Rget<T> {
    }
 }
 
-fn download_callback<I: PartInterface>(part: u64,
-                               mut interface: I,
-                               client: Arc<Client>,
-                               download_config: DownloadConfig,
-                               output: PathBuf,
-                               length: Option<u64>,
-                               config: Config,
-                               scratch: bool) -> Result<(), RgetError> {
+fn download_callback<I: PartInterface>(
+   part: u64,
+   mut interface: I,
+   client: Arc<Client>,
+   download_config: DownloadConfig,
+   output: PathBuf,
+   length: Option<u64>,
+   config: Config,
+   scratch: bool,
+) -> Result<(), RgetError> {
    let (file, filelen) = if scratch {
       (FilePart::create(&output, part), 0)
    } else {
       let file = FilePart::load_or_create(&output, part);
       let len = match file.metadata() {
          Ok(data) => data.len(),
-         Err(/*f*/_) => {
+         Err(/*f*/ _) => {
             //self.output.error(&format!("{}", f));
             //self.output.warn("downloading from byte 0");
             0
@@ -256,8 +286,15 @@ fn download_callback<I: PartInterface>(part: u64,
    };
 
    let mut request = client.get(download_config.url.clone());
-   if set_download_range(part, &mut interface, &mut request, &download_config, length, filelen) {
-      return Ok(())
+   if set_download_range(
+      part,
+      &mut interface,
+      &mut request,
+      &download_config,
+      length,
+      filelen,
+   ) {
+      return Ok(());
    }
 
    if let Some(username) = config.username {
@@ -267,41 +304,50 @@ fn download_callback<I: PartInterface>(part: u64,
       }));
    }
 
-   request.send().map_err(Into::into).and_then(|mut resp| {
-      // FIXME: is this right/all?
-      if resp.status() == StatusCode::Ok || resp.status() == StatusCode::PartialContent {
-         let &ContentLength(content_length) = resp.headers().get()
-                                                            .unwrap_or(&ContentLength(u64::MAX));
-         let parallel = download_config.parallel;
-         let mut length = length.map(|len| len / parallel).unwrap_or(content_length);
+   request
+      .send()
+      .map_err(Into::into)
+      .and_then(|mut resp| {
+         // FIXME: is this right/all?
+         if resp.status() == StatusCode::Ok || resp.status() == StatusCode::PartialContent {
+            let &ContentLength(content_length) =
+               resp.headers().get().unwrap_or(&ContentLength(u64::MAX));
+            let parallel = download_config.parallel;
+            let mut length = length.map(|len| len / parallel).unwrap_or(content_length);
 
-         if length < content_length {
-            // the last part may be slightly longer due to integer truncation
-            length = content_length;
+            if length < content_length {
+               // the last part may be slightly longer due to integer truncation
+               length = content_length;
+            }
+            interface.restore(length, content_length);
+            // TODO: check accept-ranges or whatever
+
+            io::copy(
+               &mut resp,
+               &mut BufWriter::new(BroadcastWriter::new(file, PartWriter::new(&mut interface))),
+            )?;
+
+            interface.complete();
+            Ok(())
+         } else {
+            Err(resp.status().into())
          }
-         interface.restore(length, content_length);
-         // TODO: check accept-ranges or whatever
-
-         io::copy(&mut resp, &mut BufWriter::new(BroadcastWriter::new(file, PartWriter::new(&mut interface))))?;
-
-         interface.complete();
-         Ok(())
-      } else {
-         Err(resp.status().into())
-      }
-   }).map_err(|err| {
-      interface.fail();
-      err
-   })
+      })
+      .map_err(|err| {
+         interface.fail();
+         err
+      })
 }
 
 // NOTE: returns whether download is already done
-fn set_download_range<I: PartInterface>(part: u64,
-                                interface: &mut I,
-                                request: &mut RequestBuilder,
-                                config: &DownloadConfig,
-                                length: Option<u64>,
-                                filelen: u64) -> bool {
+fn set_download_range<I: PartInterface>(
+   part: u64,
+   interface: &mut I,
+   request: &mut RequestBuilder,
+   config: &DownloadConfig,
+   length: Option<u64>,
+   filelen: u64,
+) -> bool {
    if let Some(length) = length {
       let section = length / config.parallel;
       if section == filelen || (part + 1 == config.parallel && length - section * part == filelen) {

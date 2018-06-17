@@ -8,19 +8,19 @@
 
 #[macro_use]
 extern crate clap;
-extern crate term;
 extern crate rget;
+extern crate term;
 
-use std::io::{Write};
+use std::io::Write;
 use std::process;
 
-use rget::{Downloader, Rget};
 use rget::config::Config;
+use rget::{Downloader, Rget};
 
 const DEFAULT_PARALLEL: &'static str = "4";
 
 fn main() {
-    let matches = clap_app!(rget =>
+   let matches = clap_app!(rget =>
       (version: crate_version!())
       (author: crate_authors!())
       (about: "Download accelerator written in Rust")
@@ -37,7 +37,11 @@ fn main() {
 
    let mut stderr = term::stderr().unwrap();
 
-   let parallel = match matches.value_of("PARALLEL").unwrap_or(DEFAULT_PARALLEL).parse::<u64>() {
+   let parallel = match matches
+      .value_of("PARALLEL")
+      .unwrap_or(DEFAULT_PARALLEL)
+      .parse::<u64>()
+   {
       Ok(m) => m,
       Err(f) => {
          stderr.fg(term::color::RED).unwrap();
@@ -51,14 +55,16 @@ fn main() {
       unimplemented!();
    } else {
       let config = Config {
-          username: matches.value_of("USERNAME").map(Into::into),
-          password: matches.value_of("PASSWORD").map(Into::into),
-          insecure: matches.is_present("INSECURE"),
+         username: matches.value_of("USERNAME").map(Into::into),
+         password: matches.value_of("PASSWORD").map(Into::into),
+         insecure: matches.is_present("INSECURE"),
 
-          parallel: parallel
+         parallel: parallel,
       };
       let mut downloader = Rget::new(config);
-      if let Err(f) = downloader.download::<rget::ui::multibar::MultibarUi, _>(input, matches.value_of("OUTPUT")) {
+      if let Err(f) =
+         downloader.download::<rget::ui::multibar::MultibarUi, _>(input, matches.value_of("OUTPUT"))
+      {
          stderr.fg(term::color::RED).unwrap();
          writeln!(stderr, "error: {}", f).unwrap();
       }
@@ -70,8 +76,12 @@ fn is_number(input: String) -> Result<(), String> {
       Ok(num) => if num > 0 {
          Ok(())
       } else {
-         Err(String::from("the number of parallel downloads must be greater than 0"))
+         Err(String::from(
+            "the number of parallel downloads must be greater than 0",
+         ))
       },
-      Err(_) => Err(String::from("the number of parallel downloads must be an integer"))
+      Err(_) => Err(String::from(
+         "the number of parallel downloads must be an integer",
+      )),
    }
 }

@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use term::{self, StdoutTerminal, StderrTerminal};
+use term::{self, StderrTerminal, StdoutTerminal};
 
 pub trait OutputManager {
    fn info(&mut self, msg: &str);
@@ -16,14 +16,14 @@ pub trait OutputManager {
 
 pub struct StdOutputManager {
    stdout: Box<StdoutTerminal>,
-   stderr: Box<StderrTerminal>
+   stderr: Box<StderrTerminal>,
 }
 
 impl StdOutputManager {
    pub fn new() -> StdOutputManager {
       StdOutputManager {
          stdout: term::stdout().unwrap(),
-         stderr: term::stderr().unwrap()
+         stderr: term::stderr().unwrap(),
       }
    }
 }
