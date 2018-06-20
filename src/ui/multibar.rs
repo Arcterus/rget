@@ -4,20 +4,20 @@ use std::io::Stdout;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use pbr::{MultiBar, ProgressBar, Units, Pipe};
+use pbr::{MultiBar, Pipe, ProgressBar, Units};
 
 const PRINT_DELAY: u64 = 100;
 
 pub struct MultibarUi {
    output: PathBuf,
    multibar: MultiBar<Stdout>,
-   part_count: u64
+   part_count: u64,
 }
 
 pub struct ProgressbarUi {
    part: u64,
    output: PathBuf,
-   progbar: ProgressBar<Pipe>
+   progbar: ProgressBar<Pipe>,
 }
 
 impl Interface for MultibarUi {
@@ -27,7 +27,7 @@ impl Interface for MultibarUi {
       MultibarUi {
          output: output,
          multibar: MultiBar::new(),
-         part_count: 0
+         part_count: 0,
       }
    }
 
@@ -44,7 +44,7 @@ impl Interface for MultibarUi {
       let subui = ProgressbarUi {
          part: self.part_count,
          output: self.output.clone(),
-         progbar: progbar
+         progbar: progbar,
       };
 
       self.part_count += 1;
@@ -65,7 +65,11 @@ impl PartInterface for ProgressbarUi {
    }
 
    fn complete(&mut self) {
-      self.progbar.finish_print(&format!("Completed: {}.part{}", self.output.display(), self.part));
+      self.progbar.finish_print(&format!(
+         "Completed: {}.part{}",
+         self.output.display(),
+         self.part
+      ));
    }
 
    fn update(&mut self, new_progress: usize) {
@@ -73,6 +77,10 @@ impl PartInterface for ProgressbarUi {
    }
 
    fn fail(&mut self) {
-      self.progbar.finish_print(&format!("Failed   : {}.part{}", self.output.display(), self.part));
+      self.progbar.finish_print(&format!(
+         "Failed   : {}.part{}",
+         self.output.display(),
+         self.part
+      ));
    }
 }

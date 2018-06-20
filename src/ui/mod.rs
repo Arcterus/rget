@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 pub mod multibar;
 
-pub trait Interface : Send {
+pub trait Interface: Send {
    type Part: PartInterface;
 
    fn init(output: PathBuf) -> Self;
@@ -14,7 +14,7 @@ pub trait Interface : Send {
    fn listen(&mut self);
 }
 
-pub trait PartInterface : Send {
+pub trait PartInterface: Send {
    fn restore(&mut self, total_length: u64, content_length: u64);
    fn update(&mut self, new_progress: usize);
    fn complete(&mut self);
@@ -22,13 +22,13 @@ pub trait PartInterface : Send {
 }
 
 pub struct PartWriter<'a, I: 'a + PartInterface> {
-   interface: &'a mut I
+   interface: &'a mut I,
 }
 
 impl<'a, I: 'a + PartInterface> PartWriter<'a, I> {
    pub fn new(interface: &'a mut I) -> PartWriter<'a, I> {
       PartWriter {
-         interface: interface
+         interface: interface,
       }
    }
 }

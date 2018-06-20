@@ -44,7 +44,7 @@ pub enum RgetError {
    FailedThread(String),
 
    #[fail(display = "{:?}", _0)]
-   Multiple(Vec<RgetError>)
+   Multiple(Vec<RgetError>),
 }
 
 macro_rules! error_impl {
@@ -54,7 +54,7 @@ macro_rules! error_impl {
             $rget(err)
          }
       }
-   }
+   };
 }
 
 error_impl!(io::Error, RgetError::Io);

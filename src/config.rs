@@ -13,8 +13,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use reqwest::Url;
-use serde::ser::Serializer;
 use serde::de::{self, Deserializer, Visitor};
+use serde::ser::Serializer;
 use toml;
 
 use error::RgetError;
@@ -25,7 +25,7 @@ pub struct Config {
    pub password: Option<String>,
    pub insecure: bool,
 
-   pub parallel: u64
+   pub parallel: u64,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -38,7 +38,7 @@ pub struct DownloadConfig {
 
    #[serde(serialize_with = "serialize_url")]
    #[serde(deserialize_with = "deserialize_url")]
-   pub url: Url
+   pub url: Url,
 }
 
 impl DownloadConfig {
@@ -68,22 +68,27 @@ impl<'de> Visitor<'de> for UrlVisitor {
    }
 
    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-      where E: de::Error
+   where
+      E: de::Error,
    {
       Url::from_str(value).map_err(E::custom)
    }
 }
 
 fn serialize_url<S>(url: &Url, ser: S) -> Result<S::Ok, S::Error>
-   where S: Serializer
+where
+   S: Serializer,
 {
    ser.serialize_str(url.as_str())
 }
 
 fn deserialize_url<'de, D>(de: D) -> Result<Url, D::Error>
-   where D: Deserializer<'de>
+where
+   D: Deserializer<'de>,
 {
    de.deserialize_str(UrlVisitor)
 }
 
-fn parallel_default() -> u64 { 1 }
+fn parallel_default() -> u64 {
+   1
+}

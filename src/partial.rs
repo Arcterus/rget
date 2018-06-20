@@ -6,14 +6,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::fs::{self, File, OpenOptions, Metadata};
+use std::fs::{self, File, Metadata, OpenOptions};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::io::{self, Write, Read, SeekFrom, Seek};
 use util;
 
 pub struct FilePart {
    file: File,
-   path: PathBuf
+   path: PathBuf,
 }
 
 impl FilePart {
@@ -21,20 +21,21 @@ impl FilePart {
       let path = FilePart::add_part_extension(output, num);
       FilePart {
          file: File::create(&path).unwrap(),
-         path: path
+         path: path,
       }
    }
 
    pub fn load_or_create<P: AsRef<Path>>(output: P, num: u64) -> FilePart {
       let path = FilePart::add_part_extension(output, num);
-      let mut file = OpenOptions::new().write(true)
-                                       .create(true)
-                                       .open(&path)
-                                       .unwrap();
+      let mut file = OpenOptions::new()
+         .write(true)
+         .create(true)
+         .open(&path)
+         .unwrap();
       file.seek(SeekFrom::End(0)).unwrap();
       FilePart {
          file: file,
-         path: path
+         path: path,
       }
    }
 
@@ -42,7 +43,7 @@ impl FilePart {
       let path = FilePart::add_part_extension(input, num);
       FilePart {
          file: File::open(&path).unwrap(),
-         path: path
+         path: path,
       }
    }
 
