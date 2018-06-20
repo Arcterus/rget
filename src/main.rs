@@ -62,8 +62,9 @@ fn main() {
          parallel: parallel,
       };
       let mut downloader = Rget::new(config);
-      if let Err(f) =
-         downloader.download::<rget::ui::multibar::MultibarUi, _>(input, matches.value_of("OUTPUT"))
+
+      if let Err(f) = downloader
+         .download::<rget::ui::multibar_indicatif::MultibarUi, _>(input, matches.value_of("OUTPUT"))
       {
          stderr.fg(term::color::RED).unwrap();
          writeln!(stderr, "error: {}", f).unwrap();
